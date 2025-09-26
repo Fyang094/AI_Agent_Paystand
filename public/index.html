@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Schedule Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .schedule-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .schedule-item:last-child {
+            border-bottom: none;
+        }
+
+        .schedule-time {
+            font-weight: 600;
+            color: #667eea;
+            min-width: 100px;
+        }
+
+        .schedule-title {
+            flex: 1;
+            margin-left: 20px;
+        }
+
+        .schedule-status {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-upcoming {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status-in-progress {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .status-completed {
+            background: #e8f5e8;
+            color: #388e3c;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #5a6fd8;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        #eventForm {
+            padding-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            margin: 20px auto;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 1001;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.error {
+            background: #f44336;
+        }
+
+        .ai-insights {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .ai-insights h2 {
+            color: white;
+        }
+
+        .insight-item {
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .week-view-card {
+            grid-column: 1 / -1;
+        }
+
+        .week-day {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .week-day h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .week-day-events {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .week-event {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .week-event-time {
+            font-weight: 600;
+            color: #667eea;
+            min-width: 80px;
+        }
+
+        .week-event-title {
+            flex: 1;
+            margin-left: 10px;
+        }
+
+        .week-event-type {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .type-work { background: #fff3e0; color: #f57c00; }
+        .type-personal { background: #e8f5e8; color: #388e3c; }
+        .type-meal { background: #fce4ec; color: #c2185b; }
+        .type-class { background: #e3f2fd; color: #1976d2; }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .modal-content {
+                margin: 10px;
+                max-width: calc(100vw - 20px);
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Schedule Agent</h1>
+            <p>Your intelligent personal schedule management assistant</p>
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="loadTodaySchedule()">Today's Schedule</button>
+            <button class="btn" onclick="loadWeekSchedule()">This Week</button>
+            <button class="btn btn-secondary" onclick="openEventModal()">Add Event</button>
+            <button class="btn btn-secondary" onclick="optimizeSchedule()">Optimize Schedule</button>
+            <button class="btn btn-secondary" onclick="askAIQuestion()">Ask AI</button>
+        </div>
+
+        <div class="dashboard">
+            <div class="card">
+                <h2>📅 Today's Schedule</h2>
+                <div id="todaySchedule">
+                    <p>Loading your schedule...</p>
+                </div>
+            </div>
+
+            <div class="card ai-insights">
+                <h2>🧠 AI Insights</h2>
+                <div id="aiInsights">
+                    <div class="insight-item">
+                        <strong>Welcome!</strong> I'm here to help optimize your schedule and keep you on track.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>✅ Completed Tasks</h2>
+                <div id="completedTasks">
+                    <p>No completed tasks yet today.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📊 Daily Stats</h2>
+                <div id="dailyStats">
+                    <p>Loading statistics...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week View Section -->
+        <div id="weekView" class="dashboard" style="display: none;">
+            <div class="card week-view-card">
+                <h2>📅 Week View</h2>
+                <div id="weekSchedule">
+                    <p>Loading week schedule...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Modal -->
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEventModal()">&times;</span>
+            <h2>Add New Event</h2>
+            <form id="eventForm">
+                <div class="form-group">
+                    <label for="eventTitle">Event Title</label>
+                    <input type="text" id="eventTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="eventType">Event Type</label>
+                    <select id="eventType" required>
+                        <option value="personal">Personal</option>
+                        <option value="work">Work</option>
+                        <option value="class">Class</option>
+                        <option value="assignment">Assignment</option>
+                        <option value="exam">Exam</option>
+                        <option value="meal">Meal</option>
+                        <option value="sleep">Sleep</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="startTime">Start Time</label>
+                    <input type="datetime-local" id="startTime" required>
+                </div>
+                <div class="form-group">
+                    <label for="endTime">End Time</label>
+                    <input type="datetime-local" id="endTime" required>
+                </div>
+                <div class="form-group">
+                    <label for="priority">Priority</label>
+                    <select id="priority">
+                        <option value="1">High</option>
+                        <option value="2">Medium-High</option>
+                        <option value="3" selected>Medium</option>
+                        <option value="4">Low</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description (Optional)</label>
+                    <textarea id="description" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn">Add Event</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script>
+        const USER_ID = 'demo_user_1'; // In a real app, this would be dynamic
+
+        // Load today's schedule on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTodaySchedule();
+            loadDailyStats();
+        });
+
+        async function loadTodaySchedule() {
+            try {
+                // Show main dashboard and hide week view
+                document.querySelector('.dashboard').style.display = 'grid';
+                document.getElementById('weekView').style.display = 'none';
+                
+                const response = await fetch(`/api/schedule/${USER_ID}/today`);
+                const data = await response.json();
+                
+                const scheduleDiv = document.getElementById('todaySchedule');
+                if (data.events && data.events.length > 0) {
+                    scheduleDiv.innerHTML = data.events.map(event => {
+                        const startTime = new Date(event.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        const status = event.is_completed ? 'completed' : 
+                                     new Date(event.start_time) <= new Date() && new Date(event.end_time) >= new Date() ? 'in-progress' : 'upcoming';
+                        
+                        return `
+                            <div class="schedule-item">
+                                <div class="schedule-time">${startTime}</div>
+                                <div class="schedule-title">
+                                    <strong>${event.title}</strong>
+                                    ${event.description ? `<br><small>${event.description}</small>` : ''}
+                                </div>
+                                <div class="schedule-status status-${status}">
+                                    ${status === 'completed' ? '✅ Done' : 
+                                      status === 'in-progress' ? '🔄 Now' : '⏰ Upcoming'}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    scheduleDiv.innerHTML = '<p>No events scheduled for today.</p>';
+                }
+                
+                // Also reload daily stats
+                loadDailyStats();
+                
+            } catch (error) {
+                console.error('Error loading schedule:', error);
+                showNotification('Error loading schedule', 'error');
+            }
+        }
+
+        async function loadWeekSchedule() {
+            try {
+                const response = await fetch(`/api/schedule/${USER_ID}/week`);
+                const data = await response.json();
+                
+                // Hide today's view and show week view
+                document.querySelector('.dashboard').style.display = 'none';
+                document.getElementById('weekView').style.display = 'grid';
+                
+                // Group events by day
+                const eventsByDay = {};
+                const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                
+                data.events.forEach(event => {
+                    const eventDate = new Date(event.start_time);
+                    const dayKey = eventDate.toDateString();
+                    
+                    if (!eventsByDay[dayKey]) {
+                        eventsByDay[dayKey] = {
+                            date: eventDate,
+                            events: []
+                        };
+                    }
+                    eventsByDay[dayKey].events.push(event);
+                });
+                
+                
+                // Generate week view HTML
+                let weekHtml = '';
+                
+                // Generate 7 days starting from Sunday
+                // The API returns start_date as Sunday, so use that directly
+                const startOfWeek = new Date(data.start_date + 'T00:00:00');
+                
+                for (let i = 0; i < 7; i++) {
+                    const day = new Date(startOfWeek);
+                    day.setDate(startOfWeek.getDate() + i);
+                    const dayKey = day.toDateString();
+                    const dayName = dayNames[day.getDay()];
+                    const isToday = day.toDateString() === new Date().toDateString();
+                    
+                    
+                    weekHtml += `
+                        <div class="week-day">
+                            <h3>${dayName} ${day.getMonth() + 1}/${day.getDate()}${isToday ? ' (Today)' : ''}</h3>
+                            <div class="week-day-events">
+                    `;
+                    
+                    if (eventsByDay[dayKey] && eventsByDay[dayKey].events.length > 0) {
+                        eventsByDay[dayKey].events.forEach(event => {
+                            const startTime = new Date(event.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                            weekHtml += `
+                                <div class="week-event">
+                                    <div class="week-event-time">${startTime}</div>
+                                    <div class="week-event-title">${event.title}</div>
+                                    <div class="week-event-type type-${event.event_type}">${event.event_type}</div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        weekHtml += '<p style="color: #999; font-style: italic;">No events scheduled</p>';
+                    }
+                    
+                    weekHtml += `
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('weekSchedule').innerHTML = weekHtml;
+                showNotification('Week schedule loaded', 'success');
+                
+            } catch (error) {
+                console.error('Error loading week schedule:', error);
+                showNotification('Error loading week schedule', 'error');
+            }
+        }
+
+        async function loadDailyStats() {
+            try {
+                const todayResponse = await fetch(`/api/schedule/${USER_ID}/today`);
+                const todayData = await todayResponse.json();
+                
+                const totalTasks = todayData.events ? todayData.events.length : 0;
+                const completedTasks = todayData.events ? todayData.events.filter(e => e.is_completed).length : 0;
+                const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                
+                document.getElementById('dailyStats').innerHTML = `
+                    <p><strong>Tasks Completed:</strong> ${completedTasks}/${totalTasks}</p>
+                    <p><strong>Completion Rate:</strong> ${completionRate}%</p>
+                    <p><strong>Productivity Score:</strong> ${completionRate > 70 ? '🔥 High' : completionRate > 40 ? '⚡ Medium' : '📈 Improving'}</p>
+                `;
+                
+                document.getElementById('completedTasks').innerHTML = todayData.events && todayData.events.filter(e => e.is_completed).length > 0 ?
+                    todayData.events.filter(e => e.is_completed).map(event => 
+                        `<p>✅ ${event.title} (${new Date(event.completion_time).toLocaleTimeString()})</p>`
+                    ).join('') : 
+                    '<p>No completed tasks yet today.</p>';
+            } catch (error) {
+                console.error('Error loading daily stats:', error);
+            }
+        }
+
+        async function optimizeSchedule() {
+            try {
+                showNotification('Optimizing your schedule...', 'success');
+                const response = await fetch(`/api/schedule/${USER_ID}/optimize`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ date: new Date().toISOString().split('T')[0] })
+                });
+                
+                const optimization = await response.json();
+                
+                if (optimization.suggestions && optimization.suggestions.length > 0) {
+                    document.getElementById('aiInsights').innerHTML = optimization.suggestions.map(suggestion => 
+                        `<div class="insight-item">
+                            <strong>Suggestion:</strong> ${suggestion.reason}
+                        </div>`
+                    ).join('');
+                }
+                
+                if (optimization.healthWarnings && optimization.healthWarnings.length > 0) {
+                    document.getElementById('aiInsights').innerHTML += optimization.healthWarnings.map(warning => 
+                        `<div class="insight-item">
+                            <strong>⚠️ Health Alert:</strong> ${warning.description}
+                        </div>`
+                    ).join('');
+                }
+                
+                showNotification('Schedule optimized! Check AI insights.', 'success');
+                loadTodaySchedule(); // Reload to show any changes
+            } catch (error) {
+                console.error('Error optimizing schedule:', error);
+                showNotification('Error optimizing schedule', 'error');
+            }
+        }
+
+        async function askAIQuestion() {
+            try {
+                const response = await fetch(`/api/ai/${USER_ID}/questions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                if (data.questions && data.questions.length > 0) {
+                    const questions = data.questions.join('\n\n');
+                    showNotification('AI Questions: ' + questions, 'success');
+                }
+            } catch (error) {
+                console.error('Error getting AI questions:', error);
+                showNotification('Error getting AI questions', 'error');
+            }
+        }
+
+        function openEventModal() {
+            document.getElementById('eventModal').style.display = 'block';
+        }
+
+        function closeEventModal() {
+            document.getElementById('eventModal').style.display = 'none';
+            document.getElementById('eventForm').reset();
+        }
+
+        document.getElementById('eventForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const eventData = {
+                title: document.getElementById('eventTitle').value,
+                event_type: document.getElementById('eventType').value,
+                start_time: document.getElementById('startTime').value,
+                end_time: document.getElementById('endTime').value,
+                priority: parseInt(document.getElementById('priority').value),
+                description: document.getElementById('description').value
+            };
+            
+            try {
+                const response = await fetch(`/api/events/${USER_ID}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(eventData)
+                });
+                
+                if (response.ok) {
+                    showNotification('Event added successfully!', 'success');
+                    closeEventModal();
+                    loadTodaySchedule();
+                    loadDailyStats();
+                } else {
+                    showNotification('Error adding event', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding event:', error);
+                showNotification('Error adding event', 'error');
+            }
+        });
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('eventModal');
+            if (event.target === modal) {
+                closeEventModal();
+            }
+        }
+    </script>
+</body>
+</html>
