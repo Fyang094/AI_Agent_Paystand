@@ -207,6 +207,36 @@ class Database {
     return result.lastID;
   }
 
+  async addAiInteraction(interaction) {
+    const {
+      user_id,
+      interaction_type,
+      question = null,
+      response = null,
+      context = null,
+      user_feedback = null
+    } = interaction;
+
+    await this.db.run(
+      'INSERT INTO ai_interactions (user_id, interaction_type, question, response, context, user_feedback) VALUES (?, ?, ?, ?, ?, ?)',
+      [user_id, interaction_type, question, response, context, user_feedback]
+    );
+  }
+
+  async getRecentReflections(userId, limit = 7) {
+    return await this.db.all(
+      'SELECT date, productivity_score, notes, tomorrow_priorities FROM daily_reflections WHERE user_id = ? ORDER BY date DESC LIMIT ?'
+      , [userId, limit]
+    );
+  }
+
+  async getRecentInteractions(userId, limit = 20) {
+    return await this.db.all(
+      'SELECT interaction_type, question, response, created_at FROM ai_interactions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?'
+      , [userId, limit]
+    );
+  }
+
   async close() {
     if (this.db) {
       await this.db.close();

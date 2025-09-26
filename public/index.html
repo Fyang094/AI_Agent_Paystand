@@ -306,6 +306,30 @@
         .type-meal { background: #fce4ec; color: #c2185b; }
         .type-class { background: #e3f2fd; color: #1976d2; }
 
+        .task-actions {
+            display: flex; gap: 8px; margin-left: 10px;
+        }
+        .icon-btn { border:none; background:transparent; cursor:pointer; font-size:14px; }
+
+        /* Month view compact styles */
+        .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .month-grid .dow { font-weight: 700; font-size: 12px; color: #555; }
+        .month-cell { background: #f8f9fa; border-radius: 8px; padding: 6px; min-height: 90px; cursor: pointer; }
+        .month-day { color: #667eea; font-weight: 600; font-size: 12px; }
+        .month-event { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .month-more { font-size: 11px; color: #999; }
+
+        #monthView .card { padding: 20px; }
+        #monthCalendar { max-height: 70vh; overflow: auto; }
+
+        @media (max-width: 768px) {
+            .month-cell { min-height: 60px; padding: 4px; }
+            .month-day { font-size: 11px; }
+            .month-event { font-size: 11px; }
+            .month-grid { gap: 4px; }
+            #monthCalendar { max-height: 60vh; }
+        }
+
         @media (max-width: 768px) {
             .dashboard {
                 grid-template-columns: 1fr;
@@ -337,9 +361,11 @@
         <div class="controls">
             <button class="btn" onclick="loadTodaySchedule()">Today's Schedule</button>
             <button class="btn" onclick="loadWeekSchedule()">This Week</button>
+            <button class="btn" onclick="openMonthView()">Month Calendar</button>
             <button class="btn btn-secondary" onclick="openEventModal()">Add Event</button>
             <button class="btn btn-secondary" onclick="optimizeSchedule()">Optimize Schedule</button>
-            <button class="btn btn-secondary" onclick="askAIQuestion()">Ask AI</button>
+            <button class="btn btn-secondary" onclick="prioritizeByPriority()">Prioritize by Priority</button>
+            <button class="btn btn-secondary" onclick="openAiChat()">AI Chat</button>
         </div>
 
         <div class="dashboard">
@@ -372,6 +398,16 @@
                     <p>Loading statistics...</p>
                 </div>
             </div>
+
+            <div class="card">
+                <h2>🧪 Testing</h2>
+                <div class="controls" style="margin-top:10px; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" onclick="createSampleSchedule()">Sample Schedule</button>
+                    <button class="btn btn-secondary" onclick="createConflicts()">Conflicting Events</button>
+                    <button class="btn btn-secondary" onclick="sendTestNotification()">Test Notification</button>
+                    <button class="btn btn-secondary" onclick="shiftFirstEventOneHour()">Shift First Event +1h</button>
+                </div>
+            </div>
         </div>
 
         <!-- Week View Section -->
@@ -381,6 +417,23 @@
                 <div id="weekSchedule">
                     <p>Loading week schedule...</p>
                 </div>
+            </div>
+        </div>
+
+        <!-- Month View Section -->
+        <div id="monthView" class="dashboard" style="display: none; grid-template-columns: 1fr;">
+            <div class="card week-view-card">
+                <h2>🗓️ Month View</h2>
+                <div style="display:flex; gap: 10px; margin-bottom: 10px;">
+                    <button class="btn btn-secondary" onclick="prevMonth()">Prev</button>
+                    <button class="btn btn-secondary" onclick="nextMonth()">Next</button>
+                    <button class="btn btn-secondary" onclick="syncGoogleCalendar()">Sync Google</button>
+                    <label class="btn btn-secondary" style="cursor:pointer;">
+                        Import ICS
+                        <input id="icsFile" type="file" accept=".ics,text/calendar" style="display:none" onchange="importIcsFile(event)">
+                    </label>
+                </div>
+                <div id="monthCalendar"></div>
             </div>
         </div>
     </div>
@@ -470,6 +523,16 @@
                                 <div class="schedule-status status-${status}">
                                     ${status === 'completed' ? '✅ Done' : 
                                       status === 'in-progress' ? '🔄 Now' : '⏰ Upcoming'}
+                                </div>
+                                <div class="task-actions">
+                                    <button class="icon-btn" title="Complete" onclick="completeEvent(${event.id})">✅</button>
+                                    <button class="icon-btn" title="Snooze 10m" onclick="snoozeEvent(${event.id}, 10)">😴</button>
+                                    <select onchange="changePriority(${event.id}, this.value)" title="Priority">
+                                        <option value="1" ${event.priority===1?'selected':''}>H</option>
+                                        <option value="2" ${event.priority===2?'selected':''}>MH</option>
+                                        <option value="3" ${event.priority===3?'selected':''}>M</option>
+                                        <option value="4" ${event.priority===4?'selected':''}>L</option>
+                                    </select>
                                 </div>
                             </div>
                         `;
@@ -565,6 +628,101 @@
             }
         }
 
+        // Month view
+        let currentMonth = new Date();
+        function openMonthView() {
+            document.querySelector('.dashboard').style.display = 'none';
+            document.getElementById('weekView').style.display = 'none';
+            document.getElementById('monthView').style.display = 'grid';
+            renderMonthCalendar();
+        }
+
+        function prevMonth() {
+            currentMonth.setMonth(currentMonth.getMonth() - 1);
+            renderMonthCalendar();
+        }
+
+        function nextMonth() {
+            currentMonth.setMonth(currentMonth.getMonth() + 1);
+            renderMonthCalendar();
+        }
+
+        async function renderMonthCalendar() {
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth();
+            const start = new Date(year, month, 1);
+            const end = new Date(year, month + 1, 0);
+            const startISO = start.toISOString().split('T')[0];
+            const endISO = end.toISOString().split('T')[0];
+
+            const res = await fetch(`/api/events/${USER_ID}?start=${startISO}&end=${endISO}`);
+            const events = await res.json();
+
+            const firstDayOfWeek = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let html = `<div class="month-grid">
+                <div class="dow">Sun</div><div class="dow">Mon</div><div class="dow">Tue</div><div class="dow">Wed</div><div class="dow">Thu</div><div class="dow">Fri</div><div class="dow">Sat</div>`;
+
+            for (let i = 0; i < firstDayOfWeek; i++) {
+                html += `<div></div>`;
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const dayEvents = events.filter(e => (e.start_time || '').startsWith(dateStr));
+                html += `<div class=\"month-cell\" onclick=\"onCalendarDayClick('${dateStr}')\">\n`+
+                    `    <div class=\"month-day\">${day}</div>`+
+                    dayEvents.slice(0,3).map(e=>`<div class=\\\"month-event\\\">${new Date(e.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ${e.title}</div>`).join('')+
+                    (dayEvents.length>3?`<div class=\\\"month-more\\\">+${dayEvents.length-3} more</div>`:'')+
+                `</div>`;
+            }
+
+            html += `</div>`;
+            document.getElementById('monthCalendar').innerHTML = html;
+        }
+
+        function onCalendarDayClick(dateStr) {
+            openEventModal();
+            const start = document.getElementById('startTime');
+            const end = document.getElementById('endTime');
+            start.value = `${dateStr}T09:00`;
+            end.value = `${dateStr}T10:00`;
+        }
+
+        async function syncGoogleCalendar() {
+            try {
+                const resp = await fetch(`/api/calendar/${USER_ID}/sync`, { method: 'POST' });
+                const data = await resp.json();
+                showNotification(`Synced ${data.synced_events || 0} events`, 'success');
+                renderMonthCalendar();
+            } catch (e) {
+                showNotification('Google sync failed', 'error');
+            }
+        }
+
+        async function importIcsFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const text = await file.text();
+            try {
+                const resp = await fetch(`/api/calendar/${USER_ID}/import-ics`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ics: text })
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    showNotification(`Imported ${data.imported_events} ICS events`, 'success');
+                    renderMonthCalendar();
+                } else {
+                    showNotification('ICS import failed', 'error');
+                }
+            } catch (e) {
+                showNotification('ICS import failed', 'error');
+            }
+        }
+
         async function loadDailyStats() {
             try {
                 const todayResponse = await fetch(`/api/schedule/${USER_ID}/today`);
@@ -625,21 +783,173 @@
             }
         }
 
-        async function askAIQuestion() {
+        async function prioritizeByPriority() {
             try {
-                const response = await fetch(`/api/ai/${USER_ID}/questions`, {
+                showNotification('Reprioritizing your day...', 'success');
+                const resp = await fetch(`/api/schedule/${USER_ID}/prioritize`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ startHour: 8, endHour: 22 })
                 });
-                
-                const data = await response.json();
-                if (data.questions && data.questions.length > 0) {
-                    const questions = data.questions.join('\n\n');
-                    showNotification('AI Questions: ' + questions, 'success');
+                const data = await resp.json();
+                if (resp.ok) {
+                    showNotification(`Repositioned ${data.updated} tasks`, 'success');
+                    loadTodaySchedule();
+                    loadDailyStats();
+                    renderMonthCalendarIfOpen();
+                } else {
+                    showNotification('Failed to reprioritize', 'error');
                 }
-            } catch (error) {
-                console.error('Error getting AI questions:', error);
-                showNotification('Error getting AI questions', 'error');
+            } catch (e) {
+                showNotification('Failed to reprioritize', 'error');
+            }
+        }
+
+        // Task actions
+        async function completeEvent(eventId) {
+            try {
+                const resp = await fetch(`/api/events/${eventId}/complete`, { method: 'POST' });
+                if (resp.ok) {
+                    showNotification('Marked as completed', 'success');
+                    loadTodaySchedule();
+                    loadDailyStats();
+                    if (document.getElementById('monthView').style.display === 'grid') {
+                        renderMonthCalendar();
+                    }
+                } else {
+                    showNotification('Failed to complete', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to complete', 'error');
+            }
+        }
+
+        async function snoozeEvent(eventId, minutes = 5) {
+            try {
+                const resp = await fetch(`/api/events/${eventId}/snooze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ minutes })
+                });
+                if (resp.ok) {
+                    showNotification(`Snoozed ${minutes} minutes`, 'success');
+                } else {
+                    showNotification('Failed to snooze', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to snooze', 'error');
+            }
+        }
+
+        async function changePriority(eventId, priority) {
+            try {
+                const resp = await fetch(`/api/events/${eventId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ priority: parseInt(priority) })
+                });
+                if (resp.ok) {
+                    showNotification('Priority updated', 'success');
+                    loadTodaySchedule();
+                }
+            } catch (e) {}
+        }
+
+        // Auto-refresh
+        setInterval(() => {
+            loadTodaySchedule();
+            loadDailyStats();
+        }, 60000);
+
+        // Testing helpers
+        async function createSampleSchedule() {
+            try {
+                const resp = await fetch(`/api/test/${USER_ID}/sample-schedule`, { method: 'POST' });
+                const data = await resp.json();
+                if (resp.ok) {
+                    showNotification(`Created ${data.created} sample events`, 'success');
+                    loadTodaySchedule();
+                    renderMonthCalendarIfOpen();
+                } else {
+                    showNotification('Failed to create sample schedule', 'error');
+                }
+            } catch (e) { showNotification('Failed to create sample schedule', 'error'); }
+        }
+
+        async function createConflicts() {
+            try {
+                const resp = await fetch(`/api/test/${USER_ID}/conflicts`, { method: 'POST' });
+                const data = await resp.json();
+                if (resp.ok) {
+                    showNotification(`Created ${data.created} conflicting events`, 'success');
+                    loadTodaySchedule();
+                    renderMonthCalendarIfOpen();
+                } else {
+                    showNotification('Failed to create conflicts', 'error');
+                }
+            } catch (e) { showNotification('Failed to create conflicts', 'error'); }
+        }
+
+        async function sendTestNotification() {
+            try {
+                const resp = await fetch(`/api/notifications/${USER_ID}/test`, { method: 'POST' });
+                if (resp.ok) {
+                    showNotification('Test notification sent', 'success');
+                } else {
+                    showNotification('Failed to send test notification', 'error');
+                }
+            } catch (e) { showNotification('Failed to send test notification', 'error'); }
+        }
+
+        async function shiftFirstEventOneHour() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const events = await (await fetch(`/api/events/${USER_ID}?start=${today}&end=${today}`)).json();
+                if (!events || events.length === 0) { showNotification('No events to shift', 'error'); return; }
+                const first = events[0];
+                const newStart = new Date(new Date(first.start_time).getTime() + 60*60*1000).toISOString();
+                const newEnd = new Date(new Date(first.end_time).getTime() + 60*60*1000).toISOString();
+                const resp = await fetch(`/api/events/${first.id}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ start_time: newStart, end_time: newEnd })
+                });
+                if (resp.ok) {
+                    showNotification('Shifted first event +1h', 'success');
+                    loadTodaySchedule();
+                    renderMonthCalendarIfOpen();
+                } else {
+                    showNotification('Failed to shift event', 'error');
+                }
+            } catch (e) { showNotification('Failed to shift event', 'error'); }
+        }
+
+        function renderMonthCalendarIfOpen() {
+            if (document.getElementById('monthView').style.display === 'grid') {
+                renderMonthCalendar();
+            }
+        }
+
+        function openAiChat() {
+            const input = prompt('Ask the AI about your schedule:');
+            if (!input) return;
+            askAiChat(input);
+        }
+
+        async function askAiChat(message) {
+            try {
+                const resp = await fetch(`/api/ai/${USER_ID}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    showNotification(data.reply || 'AI replied', 'success');
+                } else {
+                    showNotification('AI chat failed', 'error');
+                }
+            } catch (e) {
+                showNotification('AI chat failed', 'error');
             }
         }
 
@@ -676,6 +986,9 @@
                     closeEventModal();
                     loadTodaySchedule();
                     loadDailyStats();
+                    if (document.getElementById('monthView').style.display === 'grid') {
+                        renderMonthCalendar();
+                    }
                 } else {
                     showNotification('Error adding event', 'error');
                 }

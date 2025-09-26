@@ -8,8 +8,8 @@ class ScheduleOptimizer {
     });
   }
 
-  async optimizeSchedule(userId, events, userProfile) {
-    const prompt = this.buildOptimizationPrompt(events, userProfile);
+  async optimizeSchedule(userId, events, userProfile, history = {}) {
+    const prompt = this.buildOptimizationPrompt(events, userProfile, history);
     
     try {
       const response = await this.openai.chat.completions.create({
@@ -35,9 +35,11 @@ class ScheduleOptimizer {
     }
   }
 
-  buildOptimizationPrompt(events, userProfile) {
+  buildOptimizationPrompt(events, userProfile, history) {
     const eventsJson = JSON.stringify(events, null, 2);
     const profileJson = JSON.stringify(userProfile, null, 2);
+    const reflectionsJson = JSON.stringify(history.reflections || [], null, 2);
+    const interactionsJson = JSON.stringify(history.interactions || [], null, 2);
 
     return `
 Analyze the following schedule and user profile to optimize the user's daily schedule:
@@ -47,6 +49,12 @@ ${profileJson}
 
 CURRENT EVENTS:
 ${eventsJson}
+
+RECENT REFLECTIONS (most recent first):
+${reflectionsJson}
+
+RECENT INTERACTIONS (most recent first):
+${interactionsJson}
 
 Please analyze and provide optimization suggestions in the following JSON format:
 {
