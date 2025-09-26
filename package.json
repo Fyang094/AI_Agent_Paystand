@@ -1,0 +1,40 @@
+{
+  "name": "ai-schedule-agent",
+  "version": "1.0.0",
+  "description": "AI-powered personal schedule management agent",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "googleapis": "^128.0.0",
+    "moment": "^2.29.4",
+    "node-cron": "^3.0.3",
+    "node-ical": "^0.16.1",
+    "node-notifier": "^10.0.1",
+    "openai": "^4.20.1",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.6",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "ai",
+    "schedule",
+    "calendar",
+    "productivity",
+    "agent"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
